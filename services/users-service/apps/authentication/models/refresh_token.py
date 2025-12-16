@@ -1,7 +1,7 @@
 from uuid import uuid4
 from django.db import models
 from apps.authentication.models.user import User
-
+from django.utils import timezone
 
 class RefreshToken(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4)
@@ -19,3 +19,20 @@ class RefreshToken(models.Model):
             models.Index(fields=['user_id', 'is_revoked']),
             models.Index(fields=['expires_at'])
         ]
+
+    def revoke(self):
+        """Отозвать токен"""
+        self.is_revoked = True
+        self.revoked_at = timezone.now()
+        self.save()
+        
+    def is_expired(self):
+        """Проверка истечения"""
+        return timezone.now() > self.expires_at
+    
+    def is_valid(self):
+        """Проверка валидности"""
+        return not self.is_revoked and not self.is_expired()
+    
+    def __str__(self):
+        return f'RefreshToken for {self.user.email} (jti={self.jti[:8]}...)'
