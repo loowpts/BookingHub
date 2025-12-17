@@ -1,8 +1,13 @@
+import logging
 import jwt
 from rest_framework import serializers
 from django.conf import settings
+from apps.utils.redis_client import redis_client
 
 from apps.authentication.models.refresh_token import RefreshToken
+
+
+logger = logging.getLogger(__name__)
 
 class TokenRefreshSerializer(serializers.Serializer):
     
@@ -37,6 +42,11 @@ class TokenRefreshSerializer(serializers.Serializer):
         if not token:
             raise serializers.ValidationError('Invalid token')
         
+        if token.is_revoked():
+            logger.warning(f'Attempt to use revoked token: {jti}, user={token.user.email}')
+            RefreshToken.objects.filter(user=token.user).update(is_revoked=True)
+            raise serializers.ValidationError('Token revoked. All sessions terminated for security.')
+            
         return {
             'user': token.user
         }
